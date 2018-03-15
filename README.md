@@ -20,6 +20,7 @@ the the command to install packages is different to the one given in the Cava
 instructions. It installs extra packages needed for the build and does not
 install the Pulseaudio development package.
 ```
+   sudo apt-get update
    sudo apt-get install git-core autoconf make libtool libfftw3-dev libasound2-dev libncursesw5-dev
    git clone https://github.com/karlstav/cava
    cd cava
@@ -81,11 +82,11 @@ Change to the source directory and build the program
    make
 ```
 Check the program works correctly by running it while playing music.
-The OLED type MUST be specified with -o from the following list
-    1 - Adafruit SPI 128x64
-    3 - Adafruit I2C 128x64
-    4 - Seeed I2C 128x64
-    6 - SH1106 I2C 128x64
+The OLED type MUST be specified with -o from the following list:
+    1 - Adafruit SPI 128x64,
+    3 - Adafruit I2C 128x64,
+    4 - Seeed I2C 128x64,
+    6 - SH1106 I2C 128x64.
 
 E.g. the command for a generic I2C SH1106 display (OLED type 6) with
 a display of 10 bars and a gap of 1 pixel between bars and a framerate
@@ -100,7 +101,11 @@ Then run
    sudo bash install.sh
 ```
 This will copy the program to /usr/local/bin and add a systemd service
-to run it.
+to run it and start it running. You can start, stop, disable, etc the
+service with commands like
+```
+   sudo systemctl start vol_oled
+```
 
 ## Synchronisation
 
