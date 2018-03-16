@@ -49,9 +49,11 @@ struct ProgOpts
   int framerate;
   int bars;
   int gap;
+  unsigned char i2c_addr;
 
   ProgOpts(): prog_name("vol_oled"), version("0.01"),
-              oled(OLED_ADAFRUIT_SPI_128x32), framerate(30), bars(16), gap(1)
+              oled(OLED_ADAFRUIT_SPI_128x32), framerate(30), bars(16), gap(1),
+              i2c_addr(0)
     {}
   void usage();
   void parse_args(int argc, char *argv[]);
@@ -72,6 +74,7 @@ void ProgOpts::usage()
   printf("  -b <num>   number of bars to display (default: 16)\n");
   printf("  -g <sz>    gap between bars in, pixels (default: 1)\n");
   printf("  -f <hz>    framerate in Hz (default: 30)\n");
+  printf("  -a <addr>  I2C address, in hex (default: default for OLED type)\n");
   printf("Example :\n");
   printf( "%s -o 6 use a %s OLED\n\n", prog_name.c_str(), oled_type_str[6]);
 }
@@ -81,7 +84,7 @@ void ProgOpts::parse_args(int argc, char *argv[])
 {
   opterr = 1;  // suppress error message for unrecognised option
   int c;
-  while ((c=getopt(argc, argv, ":ho:b:g:f:")) != -1) 
+  while ((c=getopt(argc, argv, ":ho:b:g:f:a:")) != -1)
   {
     switch (c) 
     {
@@ -119,6 +122,18 @@ void ProgOpts::parse_args(int argc, char *argv[])
               "error: -f %d: framerate must be a positive integer\n", framerate);
           exit(EXIT_FAILURE);
         }
+        break;
+
+      case 'a':
+        if (strlen(optarg) != 2 ||
+            strspn(optarg, "01234567890aAbBcCdDeEfF") != 2 ) {
+          fprintf(stderr,
+              "error: -a %s: I2C address should be two hexadecimal digits\n",
+              optarg);
+          exit(EXIT_FAILURE);
+        }
+
+        i2c_addr = (unsigned char) strtol(optarg, NULL, 16);
         break;
 
       case 'h':
@@ -220,20 +235,22 @@ void draw_clock(ArduiPi_OLED &display)
   struct tm *now = localtime(&t);
   const size_t STR_SZ = 32;
   char str[STR_SZ];
-  strftime(str, STR_SZ, "%d - %m - %Y", now);
-  
-  display.setCursor(20,0);
-  display.setTextSize(1);
-  display.print(str);
-  
   strftime(str, STR_SZ, "%H:%M", now);
   
-  display.setCursor(20,20);
-  display.setTextSize(3);
+  display.setCursor(4,4);
+  display.setTextSize(4);
+  display.print(str);
+  
+  
+  strftime(str, STR_SZ, "%d-%m-%Y", now);
+  display.setCursor(0,46);
+  display.setTextSize(2);
+  //display.setCursor(30,54);
+  //display.setTextSize(1);
   display.print(str);  
 }
 
-bool init_display(ArduiPi_OLED &display, int oled)
+bool init_display(ArduiPi_OLED &display, int oled, unsigned char i2c_addr)
 {
 // SPI
   if (display.oled_is_spi_proto(oled)) {
@@ -243,7 +260,7 @@ bool init_display(ArduiPi_OLED &display, int oled)
   }
   else {
     // I2C change parameters to fit to your LCD
-    if ( !display.init(OLED_I2C_RESET, oled) )
+    if ( !display.init(OLED_I2C_RESET, oled, i2c_addr) )
       return false;
   }
 
@@ -256,8 +273,8 @@ bool init_display(ArduiPi_OLED &display, int oled)
   return true;
 }
 
-int read_and_display_loop(ArduiPi_OLED &display, FILE *fifo_file, int bars,
-    int gap)
+int read_and_display_loop(ArduiPi_OLED &display, FILE *fifo_file, int type,
+    int bars, int gap)
 {
   int cnt = 0;
   int check_every = 100;
@@ -308,7 +325,7 @@ int main(int argc, char **argv)
 
   // Set up the OLED doisplay
   ArduiPi_OLED display;
-  if(!init_display(display, opts.oled)) {
+  if(!init_display(display, opts.oled, opts.i2c_addr)) {
     fprintf(stderr, "error: could not initialise OLED\n");
     exit(EXIT_FAILURE);
   }
@@ -344,7 +361,8 @@ int main(int argc, char **argv)
     exit(EXIT_FAILURE);
   }
 
-  read_and_display_loop(display, fifo_file, opts.bars, opts.gap);
+  int type = 2;
+  read_and_display_loop(display, fifo_file, type, opts.bars, opts.gap);
   
   // Free PI GPIO ports
   display.close();

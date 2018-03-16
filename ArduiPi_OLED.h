@@ -153,10 +153,10 @@ class ArduiPi_OLED : public Adafruit_GFX
   boolean init(int8_t DC, int8_t RST, int8_t CS, uint8_t OLED_TYPE);
   
   // I2C Init
-  boolean init(int8_t RST, uint8_t OLED_TYPE);
+  boolean init(int8_t RST, uint8_t OLED_TYPE, int8_t i2c_addr=0);
 
   boolean oled_is_spi_proto(uint8_t OLED_TYPE); /* to know protocol before init */
-  boolean select_oled(uint8_t OLED_TYPE) ;
+  boolean select_oled(uint8_t OLED_TYPE, int8_t i2c_addr=0) ;
   
   void begin(void);
   void close(void);

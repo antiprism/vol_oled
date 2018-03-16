@@ -265,7 +265,7 @@ boolean ArduiPi_OLED::oled_is_spi_proto(uint8_t OLED_TYPE)
 }
 
 // initializer for OLED Type
-boolean ArduiPi_OLED::select_oled(uint8_t OLED_TYPE) 
+boolean ArduiPi_OLED::select_oled(uint8_t OLED_TYPE, int8_t i2c_addr)
 {
   // Default type
   oled_width  = 128;
@@ -317,6 +317,10 @@ boolean ArduiPi_OLED::select_oled(uint8_t OLED_TYPE)
       return false;
     break;
   }
+
+  // Override address if necessary
+  if(i2c_addr != 0)
+    _i2c_addr = i2c_addr;
   
   // Buffer size differ from OLED type, 1 pixel is one bit 
   // execpt for 96x96 seed, 1 pixel is 1 nible
@@ -375,13 +379,13 @@ boolean ArduiPi_OLED::init(int8_t DC, int8_t RST, int8_t CS, uint8_t OLED_TYPE)
 }
 
 // initializer for I2C - we only indicate the reset pin and OLED type !
-boolean ArduiPi_OLED::init(int8_t RST, uint8_t OLED_TYPE) 
+boolean ArduiPi_OLED::init(int8_t RST, uint8_t OLED_TYPE, int8_t i2c_addr)
 {
   dc = cs = -1; // DC and chip Select do not exist in I2C
   rst = RST;
 
   // Select OLED parameters
-  if (!select_oled(OLED_TYPE))
+  if (!select_oled(OLED_TYPE, i2c_addr))
     return false;
 
   // Init & Configure Raspberry PI I2C
