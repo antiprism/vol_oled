@@ -2,7 +2,7 @@
 Description=Volumio OLED Display
 
 [Service]
-ExecStart=/usr/local/bin/vol_oled -o 6 -b 24 -g 1
+ExecStart=/usr/local/bin/vol_oled -o 6 -b 21 -g 1
 
 [Install]
 WantedBy=multi-user.target

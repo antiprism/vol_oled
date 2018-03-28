@@ -21,10 +21,12 @@ includes = $(wildcard *.h)
 all: ${PROG_NAME}
 
 # Make the library
-OBJECTS=volumio_oled.o ArduiPi_OLED.o Adafruit_GFX.o bcm2835.o #Wrapper.o
+OBJECTS=main.o timer.o status.o ArduiPi_OLED.o Adafruit_GFX.o \
+	bcm2835.o display.o
+LDLIBS=-lmpdclient -lpthread
 ${OBJECTS}: ${includes}
 ${PROG_NAME}: ${OBJECTS}
-	$(CXX) $(LDFLAGS) -o $@ $^
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 # clear build files
 clean:

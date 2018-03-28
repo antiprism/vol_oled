@@ -22,13 +22,15 @@
   IN THE SOFTWARE.
 */
 
-#include "ArduiPi_OLED_lib.h"
-#include "Adafruit_GFX.h"
-#include "ArduiPi_OLED.h"
+#include "display.h"
+#include "spect_graph.h"
+#include "status.h"
+#include "timer.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <pthread.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <getopt.h>
@@ -40,6 +42,16 @@
 using std::vector;
 using std::string;
 
+const int SPECT_WIDTH = 64;
+
+struct display_info
+{
+  spect_graph spect;
+  mpd_info status;
+  int conn;
+  void conn_init() { conn = get_connection_info(); }
+};
+
 
 struct ProgOpts
 {
@@ -50,11 +62,12 @@ struct ProgOpts
   int bars;
   int gap;
   unsigned char i2c_addr;
+  int reset_gpio;
 
   ProgOpts(): prog_name("vol_oled"), version("0.01"),
               oled(OLED_ADAFRUIT_SPI_128x32), framerate(30), bars(16), gap(1),
-              i2c_addr(0)
-    {}
+              i2c_addr(0), reset_gpio(25)
+              {}
   void usage();
   void parse_args(int argc, char *argv[]);
 };
@@ -75,6 +88,7 @@ void ProgOpts::usage()
   printf("  -g <sz>    gap between bars in, pixels (default: 1)\n");
   printf("  -f <hz>    framerate in Hz (default: 30)\n");
   printf("  -a <addr>  I2C address, in hex (default: default for OLED type)\n");
+  printf("  -r <gpio>  I2C reset GPIO number, if needed (default: 25)\n");
   printf("Example :\n");
   printf( "%s -o 6 use a %s OLED\n\n", prog_name.c_str(), oled_type_str[6]);
 }
@@ -84,7 +98,7 @@ void ProgOpts::parse_args(int argc, char *argv[])
 {
   opterr = 1;  // suppress error message for unrecognised option
   int c;
-  while ((c=getopt(argc, argv, ":ho:b:g:f:a:")) != -1)
+  while ((c=getopt(argc, argv, ":ho:b:g:f:a:r:")) != -1)
   {
     switch (c) 
     {
@@ -100,7 +114,7 @@ void ProgOpts::parse_args(int argc, char *argv[])
 
       case 'b':
         bars = (int) atoi(optarg);
-        if (oled < 2 || oled > 60) {
+        if (bars < 2 || bars > 60) {
           fprintf(stderr, "error: -b %d: select between 2 and 60 bars\n", bars);
           exit(EXIT_FAILURE);
         }
@@ -109,8 +123,8 @@ void ProgOpts::parse_args(int argc, char *argv[])
       case 'g':
         gap = (int) atoi(optarg);
         if (gap < 0 || gap > 30) {
-          fprintf(stderr,
-              "error: -g %d: select a gap between 0 and 30 pixels\n", gap);
+          fprintf(stderr, "error: -g %d: select gap between 0 and 30 pixels\n",
+              gap);
           exit(EXIT_FAILURE);
         }
         break;
@@ -134,6 +148,16 @@ void ProgOpts::parse_args(int argc, char *argv[])
         }
 
         i2c_addr = (unsigned char) strtol(optarg, NULL, 16);
+        break;
+
+      case 'r':
+        reset_gpio = (int) atoi(optarg);
+        if (!isdigit(optarg[0]) || reset_gpio < 0 || reset_gpio > 99) {
+          fprintf(stderr, "error: -r %s: probably invalid (not integer in "
+              "range 0 - 99), specify the\nGPIO number of the pin that RST "
+              "is connected to\n", optarg);
+          exit(EXIT_FAILURE);
+        }
         break;
 
       case 'h':
@@ -164,10 +188,12 @@ void ProgOpts::parse_args(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
   
-  if (bars + (bars-1)*gap > 128) {
-    fprintf(stderr, "error: to display %d bars with a gap of %d means that the "
-                    "bar width will be less than one. Reduce the number of "
-                    "bars and/or the gap.\n", bars, gap);
+  const int min_spect_width = bars + (bars-1)*gap; // assume bar width = 1
+  if (min_spect_width > SPECT_WIDTH) {
+    fprintf(stderr,
+"error: spectrum graph width is %d: to display %d bars with a gap of %d\n"
+"requires a minimum width of %d. Reduce the number of bars and/or the gap.\n",
+      SPECT_WIDTH, bars, gap, min_spect_width);
     exit(EXIT_FAILURE);
   }
 }
@@ -201,90 +227,73 @@ string print_config_file(int bars, int framerate, string fifo_name)
   return templt;
 }
 
-
-int draw_spectrum(ArduiPi_OLED &display, int x_start, int y_start, int width,
-    int height, const unsigned char vals[], int num_bars, int gap)
-{
-  int total_bar_pixes = width-(num_bars-1)*gap;
-  int bar_width = floor(total_bar_pixes / num_bars);
-  int bar_height_max = height - 1;
-  int graph_width = num_bars*bar_width + (num_bars-1)*gap;
-
-  if(bar_width < 1 || bar_height_max < 1)  // bars too small to draw
-    return -1;
-
-  // Draw spectrum graph axes
-  display.drawFastHLine(x_start, height - 1 - y_start, graph_width, WHITE);
-  for (int i=0; i<num_bars; i++) {
-    int val = bar_height_max * vals[i] / 255.0;  // map vals range to graph ht
-    int x = x_start + i*(bar_width+gap);
-    int y = y_start+2;
-    display.fillRect(x, y_start, bar_width, height - val - 1, BLACK);
-    display.fillRect(x, y_start + height - val - 2, bar_width, val, WHITE);
-  }
-  return 0;
-}
-
-
+// Draw fullscreen 128x64 clock/date
 void draw_clock(ArduiPi_OLED &display)
 {
   display.clearDisplay();
-  display.setTextColor(WHITE);
-  
-  time_t t = time(0);
-  struct tm *now = localtime(&t);
-  const size_t STR_SZ = 32;
-  char str[STR_SZ];
-  strftime(str, STR_SZ, "%H:%M", now);
-  
-  display.setCursor(4,4);
-  display.setTextSize(4);
-  display.print(str);
-  
-  
-  strftime(str, STR_SZ, "%d-%m-%Y", now);
-  display.setCursor(0,46);
-  display.setTextSize(2);
-  //display.setCursor(30,54);
-  //display.setTextSize(1);
-  display.print(str);  
+  draw_time(display, 4, 4, 4, 0);
+  draw_time(display, 4, 48, 2, 1);
 }
 
-bool init_display(ArduiPi_OLED &display, int oled, unsigned char i2c_addr)
+
+void draw_spect_display(ArduiPi_OLED &display, const display_info &disp_info)
 {
-// SPI
-  if (display.oled_is_spi_proto(oled)) {
-    // SPI change parameters to fit to your LCD
-    if ( !display.init(OLED_SPI_DC, OLED_SPI_RESET, OLED_SPI_CS, oled) )
-      return false;
-  }
-  else {
-    // I2C change parameters to fit to your LCD
-    if ( !display.init(OLED_I2C_RESET, oled, i2c_addr) )
-      return false;
-  }
-
-  display.begin();
-
-  // init done
-  display.clearDisplay();   // clears the screen  buffer
-  display.display();   		// display it (clear display)
-
-  return true;
+  const int H = 8;  // character height
+  const int W = 6;  // character width
+  draw_spectrum(display, 0, 0, SPECT_WIDTH, 32, disp_info.spect);
+  draw_connection(display, 128-2*W, 0, disp_info.conn);
+  //draw_slider(display, 128-5*W, 1, 11, 6, disp_info.status.get_volume());
+  draw_triangle_slider(display, 128-5*W, 1, 11, 6, disp_info.status.get_volume());
+  draw_text(display, 128-11*W, 0, disp_info.status.get_kbitrate_str());
+  
+  draw_time(display, 128-10*W, 2*H, 2);
+  
+  draw_text(display, 0, 4*H+4, disp_info.status.get_origin().substr(0, 20));
+  draw_text(display, 0, 6*H, disp_info.status.get_title().substr(0, 20));
+  //draw_slider(display, 0, 7*H+4, 128, 4, 100*disp_info.status.get_progress());
+  draw_solid_slider(display, 0, 7*H+6, 128, 2,
+      100*disp_info.status.get_progress());
 }
 
-int read_and_display_loop(ArduiPi_OLED &display, FILE *fifo_file, int type,
-    int bars, int gap)
-{
-  int cnt = 0;
-  int check_every = 100;
-  int quiet = 0;
-  unsigned char bar_heights[bars];
 
+void draw_display(ArduiPi_OLED &display, const display_info &disp_info)
+{
+  if (disp_info.status.get_state() == MPD_STATE_UNKNOWN ||
+      disp_info.status.get_state() == MPD_STATE_STOP)
+    draw_clock(display);
+  else
+    draw_spect_display(display, disp_info);
+}
+
+
+void *update_info(void *data)
+{
+  display_info *disp_info = (display_info *)data;
+  const float delay_secs = 0.3;
+  while (true) {
+    disp_info->status.init();          // Update MPD status info
+    disp_info->conn_init();            // Update connection info
+    usleep(delay_secs * 1000000);
+  }
+};
+
+
+int start_idle_loop(ArduiPi_OLED &display, FILE *fifo_file,
+    const ProgOpts &opts)
+{
+  const double update_sec = 0.9; // default update freq = 10 /s
+  const long select_usec = update_sec * 1001000; // slightly longer
   int fifo_fd = fileno(fifo_file);
-
-  // Use this variable to clear the display when changing display type
-  int cur_disp_type = 0; // 0:none, 1:spectrum, 2:clock
+  Timer timer;
+  
+  display_info disp_info;
+  disp_info.spect.init(opts.bars, opts.gap);
+  disp_info.status.init();
+ 
+  // Update MPD info in separate thread to avoid stuttering in the spectrum
+  // animation.
+  pthread_t update_info_thread;
+  pthread_create(&update_info_thread, NULL, update_info, (void *)(&disp_info));
   
   while (true) {
     fd_set set;
@@ -293,27 +302,28 @@ int read_and_display_loop(ArduiPi_OLED &display, FILE *fifo_file, int type,
 
     // FIFO read timeout value
     struct timeval timeout;
-    timeout.tv_sec = 1;
-    timeout.tv_usec = 0;
+    timeout.tv_sec = 0;
+    timeout.tv_usec = select_usec;  // slightly longer than timer
 
-    // If there is spectrum data, read and display it, otherwise, display clock
-    if(select(FD_SETSIZE, &set, NULL, NULL, &timeout)) {
-      if(cur_disp_type != 1) {  // not spectrum
-        cur_disp_type = 1;
-        display.clearDisplay();
-      }
-      int num_read = fread(bar_heights, sizeof(unsigned char), bars, fifo_file);
-      draw_spectrum(display, 0, 0, 128, 64, bar_heights, bars, gap);
-    }
-    else {
-      if(cur_disp_type != 2) {  // not clock
-        cur_disp_type = 2;
-        display.clearDisplay();
-      }
-      draw_clock(display);
+
+    // If there is data read it, otherwise use zero data.
+    int num_bars_read = 0;
+    if(select(FD_SETSIZE, &set, NULL, NULL, &timeout))
+      num_bars_read = fread(&disp_info.spect.heights[0], sizeof(unsigned char),
+          disp_info.spect.heights.size(), fifo_file);
+    else
+      std::fill(disp_info.spect.heights.begin(), disp_info.spect.heights.end(),
+          0);
+
+    // Update display if necessary
+    if (timer.finished() || num_bars_read) {
+       display.clearDisplay();
+       draw_display(display, disp_info);
+       display.display();
     }
 
-    display.display();
+    if(timer.finished())
+      timer.set_timer(update_sec);   // Reset the timer
   }
 }
 
@@ -325,7 +335,7 @@ int main(int argc, char **argv)
 
   // Set up the OLED doisplay
   ArduiPi_OLED display;
-  if(!init_display(display, opts.oled, opts.i2c_addr)) {
+  if(!init_display(display, opts.oled, opts.i2c_addr, opts.reset_gpio)) {
     fprintf(stderr, "error: could not initialise OLED\n");
     exit(EXIT_FAILURE);
   }
@@ -361,8 +371,8 @@ int main(int argc, char **argv)
     exit(EXIT_FAILURE);
   }
 
-  int type = 2;
-  read_and_display_loop(display, fifo_file, type, opts.bars, opts.gap);
+  start_idle_loop(display, fifo_file, opts);
+  //read_and_display_loop(display, fifo_file, type, opts.bars, opts.gaps);
   
   // Free PI GPIO ports
   display.close();

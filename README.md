@@ -1,12 +1,14 @@
 # Volumio OLED Spectrum Display for Raspberry Pi
 
-The vol_oled program displays a music frequency spectrum on an OLED
-screen connected to a Raspberry Pi running Volumio.mpd (and a time
-display when no music is playing). It supports a variety of I2C and
-SPI 128x64 OLED displays.
+The vol_oled program displays an information screen including a music
+frequency spectrum on an OLED screen connected to a Raspberry Pi running
+Volumio or MPD (and a time display when no music is playing).
 
-The aim of this project is to share what has worked for me. The code
-and installation instructions should be considered rough and untested.
+It supports a variety of I2C and SPI 128x64 OLED displays.
+
+The aim of this project is to share what has worked for me, using a 4-pin
+I2C SSH1106 OLED with a Raspberry Pi Zero W. The code and installation
+instructions should be considered rough and untested.
 
 
 ## Build and install cava
@@ -94,7 +96,14 @@ of 20Hz is
 ```
    sudo ./vol_oled -o 6 -b 10 -g 1 -f 20
 ```
-If the display is working, edit the file vol_oled.service to include
+For I2C OLEDs you may need to specify the I2C address, find this by running,
+e.g. 'sudo i2cdetect -y 1' and specify the address with vol_oled -a,
+e.g. 'vol_oled -o6 -a 3d ...'. If you have a reset pin connected, specify
+the GPIO number with vol_oled -r, e.g. 'vol_oled -o6 -r 24 ...'. (For, SPI
+OLEDs, edit display.cc to include your connection details, if this works
+out I will provide options for these parameters.)
+
+Once the display is working, edit the file vol_oled.service to include
 your OLED type number with the vol_oled command, and any other options.
 Then run
 ```
@@ -106,6 +115,8 @@ service with commands like
 ```
    sudo systemctl start vol_oled
 ```
+If you wish to change vol_oled parameters later then edit vol_oled.service
+to include the changes and rerun install.sh.
 
 ## Synchronisation
 
