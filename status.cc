@@ -1,6 +1,7 @@
 #include "status.h"
 
 #include <mpd/client.h>
+#include <curl/curl.h>
 
 #include <assert.h>
 #include <stdio.h>
@@ -59,6 +60,66 @@ int get_connection_info()
   return 100 + atoi(buf);
 }
 
+// https://stackoverflow.com/questions/24884490/using-libcurl-and-jsoncpp-to-parse-from-https-webserver
+namespace
+{
+    std::size_t callback(
+            const char* in,
+            std::size_t size,
+            std::size_t num,
+            std::string* out)
+    {
+        const std::size_t totalBytes(size * num);
+        out->append(in, totalBytes);
+        return totalBytes;
+    }
+}
+
+int get_vol()
+{
+  const std::string url("http://localhost:3000/api/v1/getstate");
+
+  CURL* curl = curl_easy_init();
+
+  // Set remote URL.
+  curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+
+  // Don't bother trying IPv6, which would increase DNS resolution time.
+  curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+
+  // Time out after 1 second.
+  curl_easy_setopt(curl, CURLOPT_TIMEOUT, 1);
+
+  // Follow HTTP redirects if necessary.
+  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+
+  // Hook up data handling function.
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, callback);
+
+  // Hook up data container (will be passed as the last parameter to the
+  // callback handling function).  Can be any pointer type, since it will
+  // internally be passed as a void pointer.
+  string httpData; 
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &httpData);
+
+  // Run our HTTP GET command, capture the HTTP response code, and clean up.
+  curl_easy_perform(curl);
+  int httpCode = 0;
+  curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+  curl_easy_cleanup(curl);
+  
+  int vol = 0;
+  if (httpCode == 200) {
+    string tag_text("\"volume\":");
+    size_t pos = httpData.find(tag_text);
+    if(pos != string::npos) {
+      sscanf(httpData.substr(pos+tag_text.size()).c_str(), "%d", &vol);
+    }
+  }
+  return vol;
+}
+
+
 static string get_tag(const struct mpd_song *song, enum mpd_tag_type type)
 {
   string tag_vals;
@@ -99,9 +160,10 @@ void mpd_info::set_vals(struct mpd_connection *conn)
   if (status == NULL)
     return;
 
-  volume = mpd_status_get_volume(status);
-  if (mpd_status_get_error(status) != NULL)
-    return;
+  // Removed because MPD volume may not be Volumio volume
+  //volume = mpd_status_get_volume(status);
+  //if (mpd_status_get_error(status) != NULL)
+  //  return;
 
   state = mpd_status_get_state(status);
   if (state == MPD_STATE_PLAY || state == MPD_STATE_PAUSE) {
@@ -116,7 +178,6 @@ void mpd_info::set_vals(struct mpd_connection *conn)
     return;
 
   mpd_response_next(conn);
-
 
   struct mpd_song *song;
   if ((song = mpd_recv_song(conn)) != NULL) {
@@ -159,6 +220,7 @@ int mpd_info::init()
     set_vals(conn);
   int ret = (mpd_connection_get_error(conn) == MPD_ERROR_SUCCESS);
   mpd_connection_free(conn);
+  volume = get_vol();
   return ret;
 }
 

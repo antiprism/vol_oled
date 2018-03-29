@@ -23,7 +23,7 @@ all: ${PROG_NAME}
 # Make the library
 OBJECTS=main.o timer.o status.o ArduiPi_OLED.o Adafruit_GFX.o \
 	bcm2835.o display.o
-LDLIBS=-lmpdclient -lpthread
+LDLIBS=-lmpdclient -lcurl -lpthread
 ${OBJECTS}: ${includes}
 ${PROG_NAME}: ${OBJECTS}
 	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS)
