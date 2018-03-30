@@ -3,6 +3,7 @@
 The vol_oled program displays an information screen including a music
 frequency spectrum on an OLED screen connected to a Raspberry Pi running
 Volumio or MPD (and a time display when no music is playing).
+![OLED with vol_oled](vol_oled.jpg)
 
 It supports a variety of I2C and SPI 128x64 OLED displays.
 
@@ -39,7 +40,7 @@ is connected.
 
 The I2C bus speed on your system may be too slow for a reasonable update
 speed. I use a SSH1106 display and set a high bus speed by adding the
-following line to /boot/
+following line to /boot/config.txt
 ```
    dtparam=i2c_arm_baudrate=1200000
 ```

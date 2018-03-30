@@ -48,11 +48,11 @@ int draw_spectrum(ArduiPi_OLED &display, int x_start, int y_start, int width,
   display.drawFastHLine(x_start, height - 1 - y_start, graph_width, WHITE);
   for (int i=0; i<num_bars; i++) {
     // map vals range to graph ht
-    int val = bar_height_max * spect.heights[i] / 255.0;
+    int val = bar_height_max * spect.heights[i] / 255.0 + 0.5;
     int x = x_start + i*(bar_width+gap);
     int y = y_start+2;
-    //display.fillRect(x, y_start, bar_width, height - val - 1, BLACK);
-    display.fillRect(x, y_start + height - val - 2, bar_width, val, WHITE);
+    if(val)
+       display.fillRect(x, y_start + height - val - 2, bar_width, val, WHITE);
   }
   return 0;
 }
