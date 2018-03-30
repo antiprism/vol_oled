@@ -65,7 +65,7 @@ struct ProgOpts
   int reset_gpio;
 
   ProgOpts(): prog_name("vol_oled"), version("0.01"),
-              oled(OLED_ADAFRUIT_SPI_128x32), framerate(30), bars(16), gap(1),
+              oled(OLED_ADAFRUIT_SPI_128x32), framerate(20), bars(16), gap(1),
               i2c_addr(0), reset_gpio(25)
               {}
   void usage();
@@ -86,7 +86,7 @@ void ProgOpts::usage()
   printf("  -h         help\n");
   printf("  -b <num>   number of bars to display (default: 16)\n");
   printf("  -g <sz>    gap between bars in, pixels (default: 1)\n");
-  printf("  -f <hz>    framerate in Hz (default: 30)\n");
+  printf("  -f <hz>    framerate in Hz (default: 20)\n");
   printf("  -a <addr>  I2C address, in hex (default: default for OLED type)\n");
   printf("  -r <gpio>  I2C reset GPIO number, if needed (default: 25)\n");
   printf("Example :\n");
