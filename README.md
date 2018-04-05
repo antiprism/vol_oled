@@ -39,10 +39,10 @@ Configure your system to enable I2C or SPI, depending on how your OLED
 is connected.
 
 The I2C bus speed on your system may be too slow for a reasonable update
-speed. I use a SSH1106 display and set a high bus speed by adding the
+speed. I use a SSH1106 display and set a higher bus speed by adding the
 following line to /boot/config.txt
 ```
-   dtparam=i2c_arm_baudrate=1200000
+   dtparam=i2c_arm_baudrate=400000
 ```
 And then restart the Pi.
 
@@ -67,6 +67,14 @@ Restart mpd
 ```
 Change buffer_time if you need to synchronise the spectrum display
 and the audio on your system. Restart mpd after any changes.
+
+If the vol_oled clock does not display the local time then you may need
+to set the system time zone. The following two commands will install
+and run a console based application where you can specify your location
+```
+sudo apt-get install debconf
+sudo dpkg-reconfigure tzdata
+```
 
 
 ## Build and install vol_oled
