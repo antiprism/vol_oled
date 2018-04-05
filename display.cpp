@@ -135,8 +135,12 @@ void draw_triangle_slider(ArduiPi_OLED &display, int x_start, int y_start,
 }
 
 // Draw text
-void draw_text(ArduiPi_OLED &display, int x_start, int y_start, string str)
+void draw_text(ArduiPi_OLED &display, int x_start, int y_start, int max_len,
+    string str)
 {
+  if ((int)str.size() > max_len)
+    str.resize(max_len);
+
   display.setTextColor(WHITE);
   display.setCursor(x_start, y_start);
   display.setTextSize(1);

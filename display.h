@@ -57,7 +57,7 @@ void draw_triangle_slider(ArduiPi_OLED &display, int x_start, int y_start,
     int width, int height, float percent);
 
 // Draw text
-void draw_text(ArduiPi_OLED &display, int x_start, int y_start,
+void draw_text(ArduiPi_OLED &display, int x_start, int y_start, int max_len,
     std::string str);
   
 

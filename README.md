@@ -69,10 +69,9 @@ Change buffer_time if you need to synchronise the spectrum display
 and the audio on your system. Restart mpd after any changes.
 
 If the vol_oled clock does not display the local time then you may need
-to set the system time zone. The following two commands will install
-and run a console based application where you can specify your location
+to set the system time zone. The following command will run a console
+based application where you can specify your location
 ```
-sudo apt-get install debconf
 sudo dpkg-reconfigure tzdata
 ```
 

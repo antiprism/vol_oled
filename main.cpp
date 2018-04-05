@@ -244,12 +244,12 @@ void draw_spect_display(ArduiPi_OLED &display, const display_info &disp_info)
   draw_connection(display, 128-2*W, 0, disp_info.conn);
   //draw_slider(display, 128-5*W, 1, 11, 6, disp_info.status.get_volume());
   draw_triangle_slider(display, 128-5*W, 1, 11, 6, disp_info.status.get_volume());
-  draw_text(display, 128-11*W, 0, disp_info.status.get_kbitrate_str());
+  draw_text(display, 128-11*W, 0, 4, disp_info.status.get_kbitrate_str());
   
   draw_time(display, 128-10*W, 2*H, 2);
   
-  draw_text(display, 0, 4*H+4, disp_info.status.get_origin().substr(0, 20));
-  draw_text(display, 0, 6*H, disp_info.status.get_title().substr(0, 20));
+  draw_text(display, 0, 4*H+4, 20, disp_info.status.get_origin());
+  draw_text(display, 0, 6*H, 20, disp_info.status.get_title());
   //draw_slider(display, 0, 7*H+4, 128, 4, 100*disp_info.status.get_progress());
   draw_solid_slider(display, 0, 7*H+6, 128, 2,
       100*disp_info.status.get_progress());
