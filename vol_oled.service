@@ -1,7 +1,5 @@
 [Unit]
 Description=Volumio OLED Display
-Requires=mpd.service
-After=mpd.service
 
 [Service]
 ExecStart=/usr/local/bin/vol_oled -o 6 -b 21 -g 1
