@@ -80,11 +80,11 @@ sudo dpkg-reconfigure tzdata
 
 Install the packages needed to build the program
 ```
-   sudo apt install build-essential git-core autoconf make libtool libi2c-dev i2c-tools lm-sensors libcurl4-openssl-dev libmpdclient-dev
+   sudo apt install build-essential git-core autoconf make libtool libi2c-dev i2c-tools lm-sensors libcurl4-openssl-dev libmpdclient-dev libjsoncpp-dev
 ```
 Clone the source repository
 ```
-   git clone git clone https://github.com/antiprism/vol_oled
+   git clone https://github.com/antiprism/vol_oled
 ```
 Change to the source directory and build the program
 ```

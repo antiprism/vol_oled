@@ -1,7 +1,9 @@
 #include "status.h"
+#include "iconv_wrap.h"
 
 #include <mpd/client.h>
 #include <curl/curl.h>
+#include <jsoncpp/json/json.h>
 
 #include <assert.h>
 #include <stdio.h>
@@ -14,6 +16,10 @@
 #include <string>
 
 using std::string;
+
+namespace {
+  const iconvpp::converter conv("ASCII//TRANSLIT", "UTF-8", true);
+}
 
 bool eth_connection(char *ifname)
 {
@@ -75,7 +81,7 @@ namespace
     }
 }
 
-int get_vol()
+string get_volumio_status()
 {
   const std::string url("http://localhost:3000/api/v1/getstate");
 
@@ -108,17 +114,8 @@ int get_vol()
   curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
   curl_easy_cleanup(curl);
   
-  int vol = 0;
-  if (httpCode == 200) {
-    string tag_text("\"volume\":");
-    size_t pos = httpData.find(tag_text);
-    if(pos != string::npos) {
-      sscanf(httpData.substr(pos+tag_text.size()).c_str(), "%d", &vol);
-    }
-  }
-  return vol;
+  return (httpCode == 200) ? httpData : string();
 }
-
 
 static string get_tag(const struct mpd_song *song, enum mpd_tag_type type)
 {
@@ -130,7 +127,9 @@ static string get_tag(const struct mpd_song *song, enum mpd_tag_type type)
       tag_vals += "; ";
     tag_vals += value;
   }
-  return tag_vals;
+  string ascii;
+  conv.convert(tag_vals, ascii);
+  return ascii;
 }
   
 mpd_info::mpd_info()
@@ -220,7 +219,17 @@ int mpd_info::init()
     set_vals(conn);
   int ret = (mpd_connection_get_error(conn) == MPD_ERROR_SUCCESS);
   mpd_connection_free(conn);
-  volume = get_vol();
+
+  string volumio_status = get_volumio_status();
+  Json::Reader reader;
+  Json::Value obj;
+  if (reader.parse(volumio_status, obj)) {
+    volume = obj["volume"].asInt() ? obj["volume"].asInt() : 0;
+  }
+  else {
+    volume = 0;
+  }
+
   return ret;
 }
 

@@ -33,6 +33,7 @@
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <locale.h>
 #include <getopt.h>
 
 #include <math.h>
@@ -330,6 +331,8 @@ int start_idle_loop(ArduiPi_OLED &display, FILE *fifo_file,
 
 int main(int argc, char **argv)
 {
+  // Set locale to allow iconv transliteration to US-ASCII
+  setlocale(LC_CTYPE, "en_US.UTF-8");
   ProgOpts opts;
   opts.parse_args(argc, argv);
 
