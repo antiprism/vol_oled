@@ -224,7 +224,7 @@ int mpd_info::init()
   Json::Reader reader;
   Json::Value obj;
   if (reader.parse(volumio_status, obj)) {
-    volume = obj["volume"].asInt() ? obj["volume"].asInt() : 0;
+    volume = obj["volume"].isInt() ? obj["volume"].asInt() : 0;
   }
   else {
     volume = 0;
