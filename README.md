@@ -1,3 +1,17 @@
+# The Project Has Moved! 
+
+The vol_oled project has been expanded and renamed to mpd_oled. Its new
+location is
+
+   <https://github.com/antiprism/mpd_oled>
+
+The mpd_oled project works with a number of MPD-based players.
+
+vol_oled will receive no more updates, please use mpd_oled instead.
+
+The original README text follows...
+
+
 # Volumio OLED Spectrum Display for Raspberry Pi
 
 The vol_oled program displays an information screen including a music
